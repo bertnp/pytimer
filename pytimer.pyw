@@ -1,17 +1,62 @@
+"""PyTimer: A minimalistic cross-platform timer and stopwatch widget
+
+http://github.com/bertnp/pytimer
+"""
+
 import math
 import functools
-from PyQt5.QtCore import QTimer, QTime, Qt, QElapsedTimer, QDateTime
+from PyQt5.QtCore import QTimer, QTime, Qt, QElapsedTimer
 from PyQt5.QtWidgets import QApplication, QLCDNumber, QAction, QDialog
 from PyQt5.QtWidgets import QVBoxLayout, QTimeEdit, QDialogButtonBox
 from PyQt5.QtWidgets import QMessageBox, QWidget
 from PyQt5.QtGui import QRegion
-# from PyQt5.QtWidgets import QTextEdit, QPushButton, QHBoxLayout
 
 """ Main window class"""
 class Stopwatch(QLCDNumber):
     def __init__(self, parent=None):
         super().__init__(parent)
 
+        self.setKeyBinds()
+
+        # percentage of the standard 400x150 pixel size
+        self.parent = parent
+        self.size = 100
+        self.base_w = 240
+        self.base_h = 58
+        self.opacity = 0.8
+        self.recordedTime = 0
+        self.timeMode = 1 # 0 = count down, 1 = count up
+        self.setPaused(True)
+        # default timer duration (in ms)
+        self.baseTime = 3*1000
+
+        self.ontop = False
+        self.baseFlags = Qt.WindowFlags()
+        self.baseFlags |= Qt.Window
+
+        self.setContextMenuPolicy(Qt.ActionsContextMenu)
+        self.setWindowFlags(self.baseFlags)
+        self.changeSize(0)
+        self.toggleAlwaysOnTop()
+        self.setSegmentStyle(QLCDNumber.Flat)
+        self.setDigitCount(12)
+        self.display('00:00:00:000')
+        self.setStyleSheet('background: black; color: green;')
+        self.setWindowTitle('PyTimer')
+        self.setWindowOpacity(self.opacity)
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.ringTimer)
+        self.timer.setSingleShot(True)
+
+        self.stopwatch = QElapsedTimer()
+
+        self.displayTimer = QTimer(self)
+        self.displayTimer.timeout.connect(self.showTime)
+        self.displayTimer.start(50)
+
+
+    def setKeyBinds(self):
         """ Set shortcut keys
         q : Quit
         t : Timer mode
@@ -26,7 +71,7 @@ class Stopwatch(QLCDNumber):
         - : Decrease opacity
         """
         quitAction = QAction("&Quit", self, shortcut='q',
-                triggered=QApplication.instance().quit)
+                triggered=self.quitApp)
         timerModeAction = QAction("&Timer Mode", self, shortcut='t',
                 triggered=functools.partial(self.setMode, 0))
         stopwatchModeAction = QAction("&Stopwatch Mode", self, shortcut='s',
@@ -53,46 +98,8 @@ class Stopwatch(QLCDNumber):
         self.addAction(setCounterAction)
         self.addAction(toggleAlwaysTopAction)
 
-
-        # percentage of the standard 400x150 pixel size
-        self.parent = parent
-        self.size = 100
-        self.w = 240
-        self.h = 90
-        self.opacity = 0.8
-        self.recordedTime = 0
-        self.timeMode = 1 # 0 = count down, 1 = count up
-        self.setPaused(True)
-        # default timer duration (in ms)
-        self.baseTime = 3*1000
-
-        self.ontop = False
-        self.baseFlags = Qt.WindowFlags()
-        self.baseFlags |= Qt.Window
-        self.baseFlags |= Qt.FramelessWindowHint
-        self.baseFlags |= Qt.WindowSystemMenuHint
-
-        self.setContextMenuPolicy(Qt.ActionsContextMenu)
-        self.setWindowFlags(self.baseFlags)
-        self.toggleAlwaysOnTop()
-        self.setSegmentStyle(QLCDNumber.Flat)
-        self.setDigitCount(12)
-        self.timeString = '00:00:00:000'
-        self.display(self.timeString)
-        self.resize(self.w, self.h)
-        self.setStyleSheet('background: black; color: green;')
-        self.setWindowTitle('PyTimer')
-        self.setWindowOpacity(self.opacity)
-
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.ringTimer)
-        self.timer.setSingleShot(True)
-
-        self.stopwatch = QElapsedTimer()
-
-        self.displayTimer = QTimer(self)
-        self.displayTimer.timeout.connect(self.showTime)
-        self.displayTimer.start(50)
+    def quitApp(self):
+        QApplication.instance().quit()
 
 
     def toggleAlwaysOnTop(self):
@@ -121,6 +128,7 @@ class Stopwatch(QLCDNumber):
             if self.opacity < 0.1:
                 self.opacity = 0.1
             self.setWindowOpacity(self.opacity)
+
 
     def ringTimer(self):
         self.recordedTime = 0
@@ -212,8 +220,8 @@ class Stopwatch(QLCDNumber):
     """Change window size"""
     def changeSize(self, sign):
         self.size += sign*5
-        w = math.floor(self.size/100.0*self.w)
-        h = math.floor(self.size/100.0*self.h)
+        w = math.floor(self.size/100.0*self.base_w)
+        h = math.floor(self.size/100.0*self.base_h)
         self.resize(w, h)
 
 
@@ -225,6 +233,10 @@ class Stopwatch(QLCDNumber):
             self.timer.start(self.baseTime)
         if self.timeMode == 1:
             self.stopwatch.restart()
+
+    def resizeEvent(self, event):
+        mask = QRegion(0, 0, self.width(), self.height(), QRegion.Rectangle)
+        self.setMask(mask)
 
 
 """Dialog box for setting base time"""
@@ -256,40 +268,6 @@ class TimeDialog(QDialog):
         date = dialog.dateTime()
         return (date.time(), result == QDialog.Accepted)
 
-"""Container window so that the timer can be minimized. Frameless windows cannot
-be minimized, so the idea is to create the frameless timer window as a child
-under a framed window.
-
-There are issues with this such as the container window sometimes getting focus.
-A better work around would be preferred...
-"""
-class SimpleForm(QWidget):
-    def __init__(self, parent=None):
-        super().__init__()
-        self.stopwatch = Stopwatch(self)
-        self.resize(200,200)
-        self.setWindowTitle('PyTimer')
-
-    """Attempt to get focus on timer after minimizing then restoring window.
-    Doesn't work...
-    The keypress one works but the key press doesn't get sent to the timer
-    window so you have to press it again after the focus is transfered.
-    """
-    def showEvent(self, event):
-        self.stopwatch.activateWindow()
-    def focusOnEvent(self, event):
-        self.stopwatch.activateWindow()
-    def keyPressEvent(self, event):
-        self.stopwatch.activateWindow()
-    def resizeEvent(self, event):
-        mask = QRegion(0, 0, 1, 1,QRegion.Rectangle)
-        # I can't find a way to make the container window invisible without
-        # getting ride of its taskbar entry, so instead I make it 1x1 pixels and
-        # invisible.
-        self.setMask(mask)
-        self.setWindowOpacity(0)
-
-
 
 if __name__ == '__main__':
 
@@ -297,13 +275,7 @@ if __name__ == '__main__':
 
     app = QApplication(sys.argv)
 
-    controller = SimpleForm()
-    # move the controller window out of sight
-    controller.move(-50, -50)
-    controller.show()
-    controller.stopwatch.activateWindow()
-
-    # watch = Stopwatch()
-    # watch.show()
+    watch = Stopwatch()
+    watch.show()
     sys.exit(app.exec())
 
