@@ -5,6 +5,7 @@ http://github.com/bertnp/pytimer
 
 import math
 import functools
+import platform
 from PyQt5.QtCore import QTimer, QTime, Qt, QElapsedTimer
 from PyQt5.QtWidgets import QApplication, QLCDNumber, QAction, QDialog
 from PyQt5.QtWidgets import QVBoxLayout, QTimeEdit, QDialogButtonBox
@@ -33,6 +34,13 @@ class Stopwatch(QLCDNumber):
         self.ontop = False
         self.baseFlags = Qt.WindowFlags()
         self.baseFlags |= Qt.Window
+
+        # In Linux, setting the window mask does not get rid of the menu bar.
+        # But unlike Windows, in Linux, windows with FramelessWindowHint can
+        # still be minimized, so we can use FramelessWindowHint to get rid of
+        # the border without sacrificing the ability to minimize the window.
+        if platform.system() == 'Linux':
+            self.baseFlags |= Qt.FramelessWindowHint
 
         self.setContextMenuPolicy(Qt.ActionsContextMenu)
         self.setWindowFlags(self.baseFlags)
