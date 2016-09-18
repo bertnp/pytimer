@@ -288,7 +288,7 @@ if __name__ == '__main__':
 
     controller = SimpleForm()
     # move the controller window out of sight.
-    #controller.move(-500, -50)
+    controller.move(-500, -50)
     controller.show()
     controller.stopwatch.activateWindow()
 
