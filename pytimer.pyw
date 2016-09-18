@@ -4,6 +4,7 @@ from PyQt5.QtCore import QTimer, QTime, Qt, QElapsedTimer, QDateTime
 from PyQt5.QtWidgets import QApplication, QLCDNumber, QAction, QDialog
 from PyQt5.QtWidgets import QVBoxLayout, QTimeEdit, QDialogButtonBox
 from PyQt5.QtWidgets import QMessageBox, QWidget
+from PyQt5.QtGui import QRegion
 # from PyQt5.QtWidgets import QTextEdit, QPushButton, QHBoxLayout
 
 """ Main window class"""
@@ -257,7 +258,10 @@ class TimeDialog(QDialog):
 
 """Container window so that the timer can be minimized. Frameless windows cannot
 be minimized, so the idea is to create the frameless timer window as a child
-under a framed window. The framed window is moved off screen.
+under a framed window.
+
+There are issues with this such as the container window sometimes getting focus.
+A better work around would be preferred...
 """
 class SimpleForm(QWidget):
     def __init__(self, parent=None):
@@ -277,6 +281,13 @@ class SimpleForm(QWidget):
         self.stopwatch.activateWindow()
     def keyPressEvent(self, event):
         self.stopwatch.activateWindow()
+    def resizeEvent(self, event):
+        mask = QRegion(0, 0, 1, 1,QRegion.Rectangle)
+        # I can't find a way to make the container window invisible without
+        # getting ride of its taskbar entry, so instead I make it 1x1 pixels and
+        # invisible.
+        self.setMask(mask)
+        self.setWindowOpacity(0)
 
 
 
@@ -287,8 +298,8 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
 
     controller = SimpleForm()
-    # move the controller window out of sight.
-    controller.move(-500, -50)
+    # move the controller window out of sight
+    controller.move(-50, -50)
     controller.show()
     controller.stopwatch.activateWindow()
 
