@@ -47,8 +47,10 @@ class Stopwatch(QLCDNumber):
         self.changeSize(0)
         self.toggleAlwaysOnTop()
         self.setSegmentStyle(QLCDNumber.Flat)
-        self.setDigitCount(12)
-        self.display('00:00:00:000')
+        self.setDigitCount(8)
+        # self.setDigitCount(12)
+        # self.display('00:00:00:000')
+        self.display('00:00:00')
         self.setStyleSheet('background: black; color: green;')
         self.setWindowTitle('PyTimer')
         self.setWindowOpacity(self.opacity)
@@ -178,7 +180,8 @@ class Stopwatch(QLCDNumber):
                 time = self.stopwatch.elapsed() + self.recordedTime
 
             time_tupple = self.ms2tupple(time)
-            s = '{0:0=2d}:{1:0=2d}:{2:0=2d}:{3:0=3d}'.format(*time_tupple)
+            # s = '{0:0=2d}:{1:0=2d}:{2:0=2d}:{3:0=3d}'.format(*time_tupple)
+            s = '{0:0=2d}:{1:0=2d}:{2:0=2d}'.format(*time_tupple)
             self.display(s)
 
 
